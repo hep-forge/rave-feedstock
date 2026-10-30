@@ -1,10 +1,11 @@
 {% set versions = {
-    "0.0.0": "REPLACE_WITH_SHA256"
+    "0.6.25": "fb52fff3aa32e78d7576569113743af1f0868a5dc7b5c055e2ea0e6c1c49d070"
 } %}
 
 {% set version = environ.get('COMMIT_VERSION', None) %}
 {% set version = version or versions.keys()|first %}
 {% set version = version|string %}
+{% set root_tag = (root or '')|replace('.', '') %}
 
 {% set name = environ.get('ANACONDA_PACKAGE', 'rave')|string|lower %}
 
@@ -13,36 +14,59 @@ package:
   version: {{ environ.get('ANACONDA_VERSION', version)|replace("-", ".") }}
 
 source:
-  url: "https://rave.hepforge.org/archive/refs/tags/{{ version }}.tar.gz"   # TODO: confirm upstream's actual tag/tarball naming
+  url: "https://rave.hepforge.org/downloads?f=rave-{{ version }}.tar.gz"
   {% if versions.get(version, None) %}
   sha256: {{ versions.get(version) }}
   {% endif %}
+  # From conda-forge's rave recipe: C++17, glibc isnan, quieter output,
+  # template and unique_ptr fixes for current compilers.
+  patches:
+    - patches/0001-cpp17.patch
+    - patches/0002-glibc2.3-isnan.patch
+    - patches/0003-silence-cout.patch
+    - patches/0004-template-fix.patch
+    - patches/0005-uniqueptr.patch
 
 build:
   number: 0
+  string: "root{{ root_tag }}"
+  skip: true  # [not linux]
   run_exports:
-    - {{ pin_subpackage(name, max_pin="x.x.x") }}
+    - {{ pin_subpackage(name, max_pin="x.x") }}
 
 requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ stdlib('c') }}
-    - cmake
     - make
+    - pkg-config
   host:
-    # TODO: library dependencies
+    - clhep
+    - libboost-devel
+    - root {{ root }}.*
+    - root-guard
   run:
-    # TODO: runtime dependencies
+    - root {{ root }}.*
+    - root-guard
 
 test:
   commands:
-    - echo "TODO: a real smoke test"
+    - rave_version
+    - kinematics01
+    - test -f "${PREFIX}/lib/libRaveBase.so"
+    - test -f "${PREFIX}/lib/pkgconfig/rave.pc"
+    - test -f "${PREFIX}/share/rave/RaveConfig.cmake"
 
 about:
-  home: "https://rave.hepforge.org"
-  license: "GPL-2.0-or-later"
-  summary: "Vertex finding and fitting from reconstructed tracks"
+  home: https://rave.hepforge.org/
+  license: GPL-2.0-or-later
+  license_file: COPYING
+  summary: Vertex finding and fitting from reconstructed tracks
+  description: |
+    Rave (Reconstruction in an Abstract, Versatile Environment) takes
+    reconstructed tracks and produces interaction vertices, both finding
+    and fitting them.
 
 extra:
   recipe-maintainers:
