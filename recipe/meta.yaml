@@ -44,11 +44,10 @@ requirements:
   host:
     - clhep
     - libboost-devel
-    - root {{ root }}.*
-    - root-guard
+    - root_base {{ root }}.* cxx{{ root_cxx_standard }}*
+    - python
   run:
-    - root {{ root }}.*
-    - root-guard
+    - {{ pin_compatible('root_base', exact=True) }}
 
 test:
   commands:
